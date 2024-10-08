@@ -12,6 +12,7 @@ export default function MainScreen({ route, navigation }) {
   const { userData } = route.params;
   const [isLocationTracking, setIsLocationTracking] = useState(false);
   const [userDetails, setUserDetails] = useState(null);
+  const [lastNotifiedUser, setLastNotifiedUser] = useState(null);
 
   const fetchUserData = async () => {
     try {
@@ -68,7 +69,6 @@ export default function MainScreen({ route, navigation }) {
                 {
                   location: `POINT(${longitude} ${latitude})`, // Use the current location
                 },
-                // Add more entries if needed
               ])
               .eq('uuid', userData.uuid);
 
@@ -76,23 +76,26 @@ export default function MainScreen({ route, navigation }) {
 
             // Query for nearby users with the same interest, open to serendipity, and exclude self
             const { data: nearbyUsers, error: queryError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('interest', userDetails.interest)
-              .eq('open_to_serendipity', true)
-              .neq('uuid', userData.uuid) // Exclude the current user
-              .filter('location', 'ST_DWithin', `geography(ST_MakePoint(${longitude}, ${latitude})), 10)`); // 10 meters radius
+              .rpc('get_nearby_users', { longitude: longitude, latitude: latitude, exclude_uuid: userData.uuid });
 
-            if (queryError) throw queryError;
+            if (queryError) {
+              console.error('Error fetching nearby users:', queryError);
+            } else {
+              console.log('Nearby users:', nearbyUsers);
+            }
 
             if (nearbyUsers && nearbyUsers.length > 0) {
-              Notifications.scheduleNotificationAsync({
-                content: {
-                  title: "Meet Someone!",
-                  body: "There's someone in your area with shared interests.",
-                },
-                trigger: { seconds: 5 },
-              });
+              const newUser = nearbyUsers[0]; // Assuming you notify about the first nearby user
+              if (lastNotifiedUser !== newUser.uuid) {
+                Notifications.scheduleNotificationAsync({
+                  content: {
+                    title: "Meet A Stranger!",
+                    body: "There's someone in your area with shared interests.",
+                  },
+                  trigger: { seconds: 1 },
+                });
+                setLastNotifiedUser(newUser.uuid);
+              }
             }
           } catch (error) {
             console.error('Error updating user location or querying nearby users:', error);
@@ -106,7 +109,7 @@ export default function MainScreen({ route, navigation }) {
         clearInterval(locationInterval);
       }
     };
-  }, [isLocationTracking]);
+  }, [isLocationTracking, lastNotifiedUser]);
 
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener(response => {
