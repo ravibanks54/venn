@@ -4,11 +4,11 @@ import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { styled } from 'nativewind';
 
-const StyledView = styled(View)
-const StyledText = styled(Text)
+const StyledView = styled(View);
+const StyledText = styled(Text);
 
 export default function MainScreen({ route, navigation }) {
-  const { userData, photo } = route.params;
+  const { userData } = route.params;
   const [isLocationTracking, setIsLocationTracking] = useState(false);
 
   useEffect(() => {
@@ -16,16 +16,15 @@ export default function MainScreen({ route, navigation }) {
     if (isLocationTracking) {
       locationInterval = setInterval(async () => {
         const location = await Location.getCurrentPositionAsync({});
-        console.log('Current location:', location);
-
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: "Meet Someone!",
-            body: "There's someone in your area you should meet.",
-          },
-          trigger: { seconds: 10 },
-        });
       }, 5000);
+      
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Meet Someone!",
+          body: "There's someone in your area with shared interests.",
+        },
+        trigger: { seconds: 5 },
+      });
     }
 
     return () => {
@@ -35,8 +34,18 @@ export default function MainScreen({ route, navigation }) {
     };
   }, [isLocationTracking]);
 
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+      navigation.navigate('MeetSomeone');
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
   return (
-    <StyledView className="flex-1 bg-purple-100 p-5">
+    <StyledView className="flex-1 bg-purple-100 p-5 justify-center items-center">
       <StyledView className="w-full bg-purple-100 p-5 rounded-lg shadow-lg">
         <StyledText className="text-3xl font-extrabold mb-5 text-purple-800">Welcome, {userData.name}!</StyledText>
         <StyledText className="text-lg text-purple-600">Interest: {userData.interest}</StyledText>
