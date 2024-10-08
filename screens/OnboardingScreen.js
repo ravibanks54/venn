@@ -99,7 +99,6 @@ export default function OnboardingScreen({ navigation }) {
         ]);
 
       if (error) throw error;
-      console.log('User data saved:', data);
     } catch (error) {
       console.error('Error saving user data:', error);
     }

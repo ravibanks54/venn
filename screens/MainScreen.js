@@ -13,6 +13,7 @@ export default function MainScreen({ route, navigation }) {
   const [isLocationTracking, setIsLocationTracking] = useState(false);
   const [userDetails, setUserDetails] = useState(null);
   const [lastNotifiedUser, setLastNotifiedUser] = useState(null);
+  const [nearbyUsers, setNearbyUsers] = useState([]);
 
   const fetchUserData = async () => {
     try {
@@ -59,7 +60,6 @@ export default function MainScreen({ route, navigation }) {
     if (isLocationTracking) {
       locationInterval = setInterval(async () => {
         const location = await Location.getCurrentPositionAsync({});
-        console.log(location);
         if (location) {
           const { latitude, longitude } = location.coords;
           try {
@@ -75,22 +75,23 @@ export default function MainScreen({ route, navigation }) {
             if (error) throw error;
 
             // Query for nearby users with the same interest, open to serendipity, and exclude self
-            const { data: nearbyUsers, error: queryError } = await supabase
+            const { data: fetchedNearbyUsers, error: queryError } = await supabase
               .rpc('get_nearby_users', { longitude: longitude, latitude: latitude, exclude_uuid: userData.uuid });
 
             if (queryError) {
               console.error('Error fetching nearby users:', queryError);
             } else {
-              console.log('Nearby users:', nearbyUsers);
+              setNearbyUsers(fetchedNearbyUsers); // Store the nearby users in state
             }
 
-            if (nearbyUsers && nearbyUsers.length > 0) {
-              const newUser = nearbyUsers[0]; // Assuming you notify about the first nearby user
+            if (fetchedNearbyUsers && fetchedNearbyUsers.length > 0) {
+              const newUser = fetchedNearbyUsers[0]; // Assuming you notify about the first nearby user
               if (lastNotifiedUser !== newUser.uuid) {
                 Notifications.scheduleNotificationAsync({
                   content: {
                     title: "Meet A Stranger!",
                     body: "There's someone in your area with shared interests.",
+                    data: { nearbyUserUuid: newUser.uuid }, // Include the UUID of the nearby user
                   },
                   trigger: { seconds: 1 },
                 });
@@ -113,13 +114,30 @@ export default function MainScreen({ route, navigation }) {
 
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener(response => {
-      navigation.navigate('MeetSomeone');
+      const nearbyUserUuid = response.notification.request.content.data.nearbyUserUuid;
+      const nearbyUser = nearbyUsers.find(user => user.uuid === nearbyUserUuid);
+      
+      if (nearbyUser) {
+        navigation.navigate('MeetSomeone', { 
+          nearbyUser: {
+            name: nearbyUser.name,
+            description: nearbyUser.description,
+            lookingFor: nearbyUser.looking_for,
+            // avatarUrl: nearbyUser.profile_photo, // Assuming the photo URL is stored in profile_photo
+            // Add any other relevant user data here
+          }
+        });
+      } else {
+        console.error('Nearby user not found');
+        // Handle the case where the nearby user is not found
+        // You might want to navigate to a fallback screen or show an error message
+      }
     });
 
     return () => {
       subscription.remove();
     };
-  }, []);
+  }, [nearbyUsers]);
 
   if (!userDetails) {
     return (
