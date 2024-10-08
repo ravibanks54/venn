@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, Image, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { styled } from 'nativewind';
+import { getOrCreateUserUUID } from '../lib/utils/userUtils';
+import { supabase } from '../lib/utils/supabase'; // Import the Supabase client
+import * as FileSystem from 'expo-file-system';
 
 const StyledView = styled(View)
 const StyledText = styled(Text)
@@ -20,12 +23,40 @@ Notifications.setNotificationHandler({
 export default function OnboardingScreen({ navigation }) {
   const [step, setStep] = useState(0);
   const [userData, setUserData] = useState({
+    uuid: '',
     name: '',
     interest: '',
     description: '',
     lookingFor: '',
   });
   const [photo, setPhoto] = useState(null);
+  const [isLocationTracking, setIsLocationTracking] = useState(false);
+
+  useEffect(() => {
+    async function fetchUUIDAndUserData() {
+      const uuid = await getOrCreateUserUUID();
+      setUserData(prevData => ({ ...prevData, uuid }));
+      // Fetch user data using the UUID
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('uuid', uuid)
+        .single();
+
+      if (!error) {
+        setUserData({
+          uuid: data.uuid,
+          name: data.name,
+          interest: data.interest,
+          description: data.description,
+          lookingFor: data.looking_for,
+        });
+        setIsLocationTracking(data.open_to_serendipity);
+      }
+    }
+
+    fetchUUIDAndUserData();
+  }, []);
 
   const handleNextStep = () => setStep(step + 1);
   const handlePreviousStep = () => setStep(step > 0 ? step - 1 : 0);
@@ -34,6 +65,7 @@ export default function OnboardingScreen({ navigation }) {
   const requestPermissions = async () => {
     await Location.requestForegroundPermissionsAsync();
     await Notifications.requestPermissionsAsync();
+    await saveUserData(); // Save user data before navigating
     navigation.replace('Main', { userData, photo });
   };
 
@@ -46,7 +78,30 @@ export default function OnboardingScreen({ navigation }) {
     });
 
     if (!result.canceled) {
-      setPhoto(result.assets[0].uri);
+      setPhoto(result.assets[0]);
+    }
+  };
+
+  const saveUserData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .upsert([
+          {
+            uuid: userData.uuid,
+            name: userData.name,
+            // profile_photo: photo ? photo.base64 : null,
+            interest: userData.interest,
+            description: userData.description,
+            looking_for: userData.lookingFor,
+            open_to_serendipity: isLocationTracking,
+          },
+        ]);
+
+      if (error) throw error;
+      console.log('User data saved:', data);
+    } catch (error) {
+      console.error('Error saving user data:', error);
     }
   };
 
@@ -71,7 +126,7 @@ export default function OnboardingScreen({ navigation }) {
               placeholder="Enter your name"
               placeholderTextColor="gray"
             />
-            {photo && <Image source={{ uri: photo }} style={{ width: 200, height: 200 }} />}
+            {photo && <Image source={{ uri: photo.uri }} style={{ width: 200, height: 200 }} />}
             <Button title="Upload Photo" onPress={pickImage} color="#1E90FF" />
             <StyledView className="flex-row justify-end w-full">
               <Button title="Next" onPress={handleNextStep} color="#1E90FF" />

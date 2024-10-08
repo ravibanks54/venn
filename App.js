@@ -4,8 +4,13 @@ import { createStackNavigator } from '@react-navigation/stack';
 import OnboardingScreen from './screens/OnboardingScreen';
 import MainScreen from './screens/MainScreen';
 import MeetSomeoneScreen from './screens/MeetScreen';
+import { supabase } from './lib/utils/supabase';
+import { Buffer } from 'buffer';
+
+global.Buffer = Buffer;
 
 const Stack = createStackNavigator();
+
 
 export default function App() {
   return (
@@ -22,7 +27,7 @@ export default function App() {
           options={{ headerShown: false }}
         />
         <Stack.Screen 
-          name="MeetSomeone" 
+          name="MeetSomeone"
           component={MeetSomeoneScreen} 
           options={{ title: "Meet Someone" }}
         />

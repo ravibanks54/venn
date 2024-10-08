@@ -22,12 +22,12 @@ export default function MeetSomeoneScreen({ navigation }) {
   return (
     <StyledView className="flex-1 items-center justify-center bg-gradient-to-b from-blue-100 to-blue-300">
       <StyledView className="bg-white p-5 rounded-lg shadow-lg items-center w-80">
-        <StyledText className="text-2xl font-bold mb-5">Meet Someone!</StyledText>
+        <StyledText className="text-2xl font-bold mb-5">New Investor Identified!</StyledText>
         <StyledImage
-          source={{ uri: 'https://via.placeholder.com/150' }}
+          source={require('../assets/stranger.png')}
           className="w-36 h-36 mb-5 rounded-full"
         />
-        <StyledText className="text-lg mb-5">Name: J*** D**</StyledText>
+        <StyledText className="text-lg mb-5">Name: Jake O'Shea</StyledText>
         <StyledButton
           title="Accept"
           onPress={handleAccept}
